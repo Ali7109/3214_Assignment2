@@ -4,16 +4,23 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /**
- * Assignment2svr — Concurrent UDP file receiver server
+ * Assignment2svr — This is a Concurrent UDP file receiver server
  * ----------------------------------------------------
- * Handles up to multiple simultaneous client uploads.
+ * Handles up to multiple simultaneous client uploads of files with possibly
+ * same file names (we handle uniqueness on this server end).
+ *
  * Each client is identified by its IP:port and runs in its own thread.
  *
  * Protocol summary:
  *  - Client sends "META:FILENAME:<filename>" to start
+ *          -- This is so the filename is preserved from the client
  *  - Server responds with 1-byte ACK
+ *          -- Used to ACK so we know the file reached appropriately
  *  - Client sends data packets
+ *          -- Data to send in packets of 1KB or 1024 Bytes each
  *  - Client sends "META:END" when finished
+ *          -- This completes our file send, so server knows it
+ *             can stop listening for packets from this client thread
  *  - Server finalizes and closes file, acknowledging each step
  */
 public class Assignment2svr {
@@ -47,6 +54,7 @@ public class Assignment2svr {
             byte[] buffer = new byte[BUFFER_SIZE];
             ExecutorService threadPool = Executors.newFixedThreadPool(8); // up to 8 clients concurrently
 
+            // We assume the server wants to listen indefinitely, delegating to threads
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
@@ -70,7 +78,7 @@ public class Assignment2svr {
         }
     }
 
-    // === Core handlers ===
+    // Actual file handlers
 
     private static void handleFileStart(DatagramSocket socket, ExecutorService pool, ClientKey key, String filename) throws IOException {
         File file = getUniqueFile(filename);
@@ -78,8 +86,8 @@ public class Assignment2svr {
         sessions.put(key, session);
         pool.submit(session);
 
-        session.sendAck();
-        System.out.printf("Started session for %s → saving as '%s'%n", key, file.getName());
+        session.sendAck(); // Let client know, server has completed the file
+        System.out.printf("Session started %s : saving file as '%s'%n", key, file.getName());
     }
 
     private static void handleFileEnd(DatagramSocket socket, ClientKey key) throws IOException {
@@ -101,12 +109,14 @@ public class Assignment2svr {
         }
     }
 
-    // === Utility methods ===
+    // Helper methods
 
     private static void sendAck(DatagramSocket socket, InetAddress addr, int port) throws IOException {
+        // A byte empty request to let the client listening on the socket to ACKNOWLEDGE
         socket.send(new DatagramPacket(new byte[]{1}, 1, addr, port));
     }
 
+    // Check if port is available, as in NOT in use
     private static boolean isPortAvailable(int port) {
         try (DatagramSocket ignored = new DatagramSocket(port)) {
             return true; // If it can bind, it’s free
@@ -115,6 +125,7 @@ public class Assignment2svr {
         }
     }
 
+    // Check if its a port in the appropriate range
     private static boolean isPortSafe(int port) {
         // Ports below 1024 are reserved, and 49152–65535 are dynamic/private (usually safe)
         return port >= 1024 && port <= 65535;
@@ -124,7 +135,7 @@ public class Assignment2svr {
     /**
      * We need to use this to generate a unique file name in case one already exists with it
      * locally on the server side.
-     * Example: "example.txt" → "example(1).txt"
+     * Example: appending a copy number at the end, example.txt --> example(1).txt
      */
     private static File getUniqueFile(String baseName) {
         File file = new File(baseName);
@@ -145,7 +156,9 @@ public class Assignment2svr {
         return file;
     }
 
-    /** Represents a unique client identified by IP + port */
+    /**
+     * Represents a unique client identified by IP + port that we can use in the Concurrent Hash Map
+     */
     private static record ClientKey(InetAddress address, int port) {
         @Override
         public String toString() {
@@ -154,8 +167,10 @@ public class Assignment2svr {
     }
 
     /**
-     * Handles an individual client's file transfer in its own thread.
-     * Writes incoming data from a queue into a file until closed.
+     *
+     * Helper class for a client session. This handles individual client's and their thread
+     * for file transfer. It handles taking incoming data from a queue in case the thread is
+     * busy until file transfer is complete.
      */
     private static class ClientSession implements Runnable {
         private final DatagramSocket socket;
