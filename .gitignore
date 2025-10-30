@@ -15,7 +15,7 @@ out/
 bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
-**/**/test_cross_ip.bash
+client/src/test_cross_ip.bash
 **/*.txt
 
 ### NetBeans ###
