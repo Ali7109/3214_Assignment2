@@ -52,6 +52,20 @@ public class Assignment2cli {
             System.out.println("Sending file: " + filename);
             System.out.println("File size: " + file.length() + " bytes");
 
+            // First, send the filename as the first packet
+            byte[] filenameBytes = file.getName().getBytes();
+            DatagramPacket filenamePacket = new DatagramPacket(
+                    filenameBytes,
+                    filenameBytes.length,
+                    serverAddress,
+                    port
+            );
+            socket.send(filenamePacket);
+            System.out.println("Sent filename: " + file.getName());
+
+            // Small delay to ensure filename packet is processed first
+            Thread.sleep(50);
+
             // Open file for reading
             fis = new FileInputStream(file);
             byte[] buffer = new byte[1024];
@@ -75,7 +89,9 @@ public class Assignment2cli {
 
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
+            e.printStackTrace();
         } finally {
+            // Clean up resources
             try {
                 if (fis != null) fis.close();
             } catch (Exception e) {
