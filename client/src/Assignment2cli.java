@@ -3,9 +3,9 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 
 public class Assignment2cli {
-    private static final int BUFFER_SIZE = 1024;
-    private static final int TIMEOUT_MS = 2000; // 2 seconds timeout for ACKs
-    private static final int MAX_RETRIES = 5;
+    private static final int BUFFER_SIZE = 1024; // Data upto 100MB is accepted, but we split it into buffers of 1KB
+    private static final int TIMEOUT_MS = 2000; // This is a cursory timeout between tries for ACK, incase server is "down"
+    private static final int MAX_RETRIES = 5; // Manually hardcoded retry limit of 5
 
     public static void main(String[] args) {
         if (args.length != 3) {
@@ -13,7 +13,10 @@ public class Assignment2cli {
             System.exit(1);
         }
 
+        // ServerIP Address
         String serverIP = args[0];
+
+        // Port of the ServerIP Address
         int port = parsePort(args[1]);
         String filename = args[2];
 
@@ -32,7 +35,7 @@ public class Assignment2cli {
             System.out.println("Connecting to server " + serverIP + ":" + port);
             System.out.println("Sending file: " + filename + " (" + file.length() + " bytes)");
 
-            // We had a uniquely identifiable header
+            // We send the filename meta data before the file
             sendWithAck(socket, serverAddress, port, ("META:FILENAME:" + file.getName()).getBytes(StandardCharsets.UTF_8), "filename");
 
             // Send file data in a buffer, I have predefined it to 1024 which should be sufficient < 100MB
