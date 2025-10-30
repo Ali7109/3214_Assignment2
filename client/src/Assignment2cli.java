@@ -32,10 +32,10 @@ public class Assignment2cli {
             System.out.println("Connecting to server " + serverIP + ":" + port);
             System.out.println("Sending file: " + filename + " (" + file.length() + " bytes)");
 
-            // === Step 1: Send filename header ===
+            // We had a uniquely identifiable header
             sendWithAck(socket, serverAddress, port, ("META:FILENAME:" + file.getName()).getBytes(StandardCharsets.UTF_8), "filename");
 
-            // === Step 2: Send file data ===
+            // Send file data in a buffer, I have predefined it to 1024 which should be sufficient < 100MB
             byte[] buffer = new byte[BUFFER_SIZE];
             int bytesRead;
             long totalBytesSent = 0;
@@ -49,15 +49,17 @@ public class Assignment2cli {
                 System.out.printf("Sent %d bytes (%.2f%%)\n", totalBytesSent, progress);
             }
 
-            // === Step 3: Send end signal ===
+            // Send file is complete and we wait for Ack, that way we know it was sent to the right place
+            // and downloaded. Other wise we retry (look below)
             sendWithAck(socket, serverAddress, port, "META:END".getBytes(StandardCharsets.UTF_8), "end signal");
 
-            System.out.println("✅ File transfer completed successfully! Total bytes: " + totalBytesSent);
+
+            System.out.println("File transfer completed successfully! Total bytes: " + totalBytesSent);
 
         } catch (SocketTimeoutException e) {
-            System.err.println("❌ Timeout waiting for ACK from server. Transfer failed.");
+            System.err.println("Timeout waiting for ACK from server. Transfer failed.");
         } catch (Exception e) {
-            System.err.println("❌ Error: " + e.getMessage());
+            System.err.println("Error: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -79,13 +81,14 @@ public class Assignment2cli {
                     return; // ACK received, success
                 }
             } catch (SocketTimeoutException e) {
-                System.err.printf("⚠️ No ACK for %s (attempt %d/%d)... retrying%n", stage, attempt, MAX_RETRIES);
+                System.err.printf("[ATTEMPT FAILED....RETRYING] No ACK for %s (attempt %d/%d)...%n", stage, attempt, MAX_RETRIES);
             }
         }
 
-        throw new IOException("No ACK received after " + MAX_RETRIES + " attempts for stage: " + stage);
+        throw new IOException("[SEND FAILED] No ACK received after " + MAX_RETRIES + " attempts for stage: " + stage);
     }
 
+    // We only want to allow the unallocated ports within the following range: [1024 - 65535] inclusive
     private static int parsePort(String portStr) {
         try {
             int port = Integer.parseInt(portStr);

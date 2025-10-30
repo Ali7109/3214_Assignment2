@@ -122,7 +122,8 @@ public class Assignment2svr {
 
 
     /**
-     * Returns a unique file path if a file with the same name already exists.
+     * We need to use this to generate a unique file name in case one already exists with it
+     * locally on the server side.
      * Example: "example.txt" → "example(1).txt"
      */
     private static File getUniqueFile(String baseName) {
@@ -143,8 +144,6 @@ public class Assignment2svr {
         }
         return file;
     }
-
-    // === Inner helper classes ===
 
     /** Represents a unique client identified by IP + port */
     private static record ClientKey(InetAddress address, int port) {
@@ -184,7 +183,7 @@ public class Assignment2svr {
                 }
                 fos.flush();
             } catch (IOException | InterruptedException e) {
-                System.err.printf("💥 Error in session %s: %s%n", key, e.getMessage());
+                System.err.printf("Error in session %s: %s%n", key, e.getMessage());
             }
         }
 
