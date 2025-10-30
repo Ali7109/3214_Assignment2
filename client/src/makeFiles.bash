@@ -1,0 +1,3 @@
+for i in {1..20}; do
+  echo "I'm file $i!" > file$i.txt
+done
